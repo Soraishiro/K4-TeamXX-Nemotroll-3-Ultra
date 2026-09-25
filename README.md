@@ -83,6 +83,10 @@ Xem các tool hiện có:
 day09 mcp-tools
 ```
 
+Xem cả input schema của từng tool bằng `day09 mcp-tools --describe`.
+Chẩn đoán một case có trong manifest bằng
+`day09 inspect-case L3A_CASE_001 get_order get_order_items get_policy`.
+
 Ví dụ gọi tool trong `workflow.py`:
 
 ```python
@@ -150,6 +154,15 @@ Hoàn thiện mô tả thiết kế trong `ARCHITECTURE.md`.
 day09 run
 day09 validate
 ```
+
+Workflow mặc định chạy tối đa 4 cases đồng thời; dùng
+`day09 run --concurrency 1` để chạy tuần tự (giới hạn cấu hình: 1–8).
+Trên Windows, có thể gọi `.venv/Scripts/day09.exe` trực tiếp.
+Raw MCP envelopes được giữ tại `traces/evidence.json` để đối chiếu và không được
+đưa vào submission ZIP. Nếu Gateway không trả được refund history, workflow thêm
+bước `verify_refund_history` trước action refund và giảm confidence. Chỉ giữ khoản
+đề xuất dương khi có monetary rule từ policy cùng evidence xác nhận khoản đủ điều
+kiện; nếu thiếu monetary rule thì ghi `needs_investigation` và không đề xuất tiền.
 
 Kết quả được tạo tại:
 

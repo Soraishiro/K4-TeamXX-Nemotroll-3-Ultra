@@ -65,6 +65,9 @@ def validate_artifacts(
         raise ValueError("traces/trace.jsonl is missing or not UTF-8") from exc
     normalized_lines: list[str] = []
     seen_events: set[str] = set()
+    lifecycle: dict[str, list[str]] = {case_id: [] for case_id in expected}
+    consumed: dict[str, set[str]] = {case_id: set() for case_id in expected}
+    ref_owners: dict[str, str] = {}
     for number, line in enumerate(trace_lines, 1):
         if not line.strip():
             continue
@@ -78,7 +81,34 @@ def validate_artifacts(
         if event["event_id"] in seen_events:
             raise ValueError(f"traces/trace.jsonl:{number}: duplicate event_id")
         seen_events.add(event["event_id"])
+        case_id = event["case_id"]
+        lifecycle[case_id].append(event["event_type"])
+        for ref in event.get("evidence_refs", []):
+            if ref in ref_owners and ref_owners[ref] != case_id:
+                raise ValueError("trace contains cross-case evidence reuse")
+            ref_owners[ref] = case_id
+        if event["event_type"] == "tool_result_consumed":
+            consumed[case_id].update(event.get("evidence_refs", []))
+        elif not set(event.get("evidence_refs", [])) <= consumed[case_id]:
+            raise ValueError(f"{case_id}: trace references evidence before consumption")
         normalized_lines.append(json.dumps(event, ensure_ascii=False, separators=(",", ":")))
+
+    required_events = {
+        "case_received",
+        "task_assigned",
+        "handoff",
+        "verification_completed",
+        "case_finalized",
+    }
+    for case_id, events in lifecycle.items():
+        if not required_events <= set(events):
+            raise ValueError(f"{case_id}: incomplete workflow lifecycle")
+        if events[0] != "case_received" or events[-1] != "case_finalized":
+            raise ValueError(f"{case_id}: receive/finalize ordering is invalid")
+        if events.count("case_received") != 1 or events.count("case_finalized") != 1:
+            raise ValueError(f"{case_id}: duplicate receive/finalize event")
+        if not set(outputs[case_id]["evidence_refs"]) <= consumed[case_id]:
+            raise ValueError(f"{case_id}: output evidence was not consumed in this trace")
 
     serialized = [json.dumps(value, ensure_ascii=False) for value in outputs.values()]
     if SECRET_PATTERN.search("\n".join([*serialized, *normalized_lines])):
