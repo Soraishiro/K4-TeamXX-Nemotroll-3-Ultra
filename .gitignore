@@ -27,6 +27,7 @@ traces/*
 dist/*
 !dist/.gitkeep
 *.zip
+AGENTS.md
 *.log
 
 # Editors and operating systems
