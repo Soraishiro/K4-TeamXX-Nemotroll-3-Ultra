@@ -12,6 +12,10 @@ from mcp.client.streamable_http import streamable_http_client
 from .contracts import Contracts
 
 
+class ToolExecutionError(RuntimeError):
+    """The MCP server executed the tool and reported an error (deterministic, not retryable)."""
+
+
 class EvidenceGateway:
     def __init__(self, session: ClientSession, contracts: Contracts) -> None:
         self._session = session
@@ -24,11 +28,14 @@ class EvidenceGateway:
     async def call(self, tool_name: str, *, case_id: str, **arguments: str) -> dict[str, Any]:
         payload = {"case_id": case_id, **arguments}
         result = await self._session.call_tool(tool_name, arguments=payload)
-        if result.isError:
+        is_err = getattr(result, "isError", None)
+        if is_err is None:
+            is_err = getattr(result, "is_error", False)
+        if is_err:
             message = " ".join(
                 block.text for block in result.content if getattr(block, "text", None)
             )
-            raise RuntimeError(f"MCP tool {tool_name} failed: {message or 'unknown error'}")
+            raise ToolExecutionError(f"MCP tool {tool_name} failed: {message or 'unknown error'}")
         evidence = getattr(result, "structuredContent", None)
         if evidence is None:
             evidence = getattr(result, "structured_content", None)
