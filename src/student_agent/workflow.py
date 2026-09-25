@@ -270,7 +270,7 @@ class ShipmentAgent:
 
 
 class PolicyAgent:
-    """Specialist Agent evaluating policies, claims, primary issues, root cause, and financial resolution."""
+    """Evaluate policies, claims, primary issues, root cause, and financial resolution."""
 
     ACTOR_NAME = "policy_agent"
     PERMITTED_TOOLS = ("get_policy",)
